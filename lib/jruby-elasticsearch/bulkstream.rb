@@ -10,11 +10,11 @@ class ElasticSearch::BulkStream
   # requests. If the queue reaches this size, new requests
   # will block until there is room to move.
   def initialize(client, queue_size=10, flush_interval=1)
-    @bulkthread = Thread.new { run } 
     @client = client
     @queue_size = queue_size
     @queue = SizedQueue.new(@queue_size)
     @flush_interval = flush_interval
+    @bulkthread = Thread.new { run } 
   end # def initialize
 
   # See ElasticSearch::BulkRequest#index for arguments.
@@ -31,19 +31,25 @@ class ElasticSearch::BulkStream
   def run
     # TODO(sissel): Make a way to shutdown this thread.
     while true
-      requests = []
-      if @queue.size == @queue_size
-        # queue full, flush now.
-        flush
-      else
-        # Not full, so sleep and flush anyway.
-        sleep(@flush_interval)
-        flush
-      end
+      begin
+        requests = []
+        if @queue.size == @queue_size
+          # queue full, flush now.
+          flush
+        else
+          # Not full, so sleep and flush anyway.
+          sleep(@flush_interval)
+          flush
+        end
 
-      if @stop and @queue.size == 0
-        # Queue empty and it's time to stop.
-        break
+        if @stop and @queue.size == 0
+          # Queue empty and it's time to stop.
+          break
+        end
+      rescue => err
+        # TODO log this better
+        $stderr.puts err.inspect
+        $stderr.puts err.backtrace
       end
     end # while true
   end # def run
