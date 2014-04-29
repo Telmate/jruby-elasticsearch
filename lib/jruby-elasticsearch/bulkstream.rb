@@ -9,12 +9,16 @@ class ElasticSearch::BulkStream
   # The 'queue_size' is the maximum size of unflushed
   # requests. If the queue reaches this size, new requests
   # will block until there is room to move.
-  def initialize(client, queue_size=10, flush_interval=1)
+  def initialize(client, queue_size=10, flush_interval=1, flushers=1)
     @client = client
     @queue_size = queue_size
-    @queue = SizedQueue.new(@queue_size)
+    @queue = SizedQueue.new(@queue_size * (flushers * 2)) # allow a back-buffer of requests
     @flush_interval = flush_interval
-    @bulkthread = Thread.new { run } 
+    @bulkthreads = []
+    @flush_mutex = Mutex.new
+    flushers.times {
+      @bulkthreads << Thread.new { run }
+    }
   end # def initialize
 
   # See ElasticSearch::BulkRequest#index for arguments.
@@ -26,14 +30,14 @@ class ElasticSearch::BulkStream
     @queue << [:index, *args]
   end # def index
 
-  # The stream runner. 
+  # The stream runner.
   private
   def run
     # TODO(sissel): Make a way to shutdown this thread.
     while true
       begin
         requests = []
-        if @queue.size == @queue_size
+        if @queue.size >= @queue_size
           # queue full, flush now.
           flush
         else
@@ -57,6 +61,7 @@ class ElasticSearch::BulkStream
   # Stop the stream
   public
   def stop
+    @queue.clear if @queue.empty? # wake up the waiters
     @queue << nil
     @stop = true
   end # def stop
@@ -67,18 +72,20 @@ class ElasticSearch::BulkStream
   def flush
     bulk = @client.bulk
 
-    flush_one = proc do
-      # block if no data.
-      method, *args = @queue.pop
-      return if args.nil? # probably we are now stopping.
-      bulk.send(method, *args)
-    end
+    @flush_mutex.synchronize {
+      flush_one = proc do
+        # block if no data.
+        method, *args = @queue.pop
+        return if args.nil? # probably we are now stopping.
+        bulk.send(method, *args)
+      end
 
-    flush_one.call
+      flush_one.call # will wait on pop if empty
 
-    1.upto([@queue.size, @queue_size - 1].min) do
-      flush_one.call
-    end
+      1.upto([@queue.size, @queue_size - 1].min) do
+        flush_one.call
+      end
+    }
 
     # Block until this finishes
     bulk.execute!
