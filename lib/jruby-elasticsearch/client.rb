@@ -29,7 +29,7 @@ class ElasticSearch::Client
       port = (options[:port] or "9300")
       builder.put("discovery.zen.ping.multicast.enabled", false)
       if port =~ /^\d+-\d+$/
-        # port ranges are 'host[port1-port2]' according to 
+        # port ranges are 'host[port1-port2]' according to
         # http://www.elasticsearch.org/guide/reference/modules/discovery/zen/
         # However, it seems to only query the first port.
         # So generate our own list of unicast hosts to scan.
@@ -61,7 +61,7 @@ class ElasticSearch::Client
     end
 
     case options[:type]
-      when :transport 
+      when :transport
         @client = org.elasticsearch.client.transport.TransportClient.new(builder.build)
         if options[:host]
           @client.addTransportAddress(
@@ -86,8 +86,8 @@ class ElasticSearch::Client
   end # def bulk
 
   public
-  def bulkstream(queue_size=10, flush_interval=1)
-    return ElasticSearch::BulkStream.new(self, queue_size, flush_interval)
+  def bulkstream(queue_size=10, flush_interval=1, flushers=1)
+    return ElasticSearch::BulkStream.new(self, queue_size, flush_interval,flushers)
   end # def bulk
 
   # Index a new document
