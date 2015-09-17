@@ -36,6 +36,13 @@ class ElasticSearch::BulkRequest < ElasticSearch::Request
     @prep.add(req)
   end
 
+  def partial_update(index, type, id = nil, data = {}, options = {})
+    req = org.elasticsearch.action.update.UpdateRequest.new(index, type, id.to_s)
+    req.retryOnConflict(options[:retry_on_conflict] || 3)
+    req.doc(data)
+    @prep.add(req)
+  end
+
   public
   def <<(request)
     @prep.add(request)
