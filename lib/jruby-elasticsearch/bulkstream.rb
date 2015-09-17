@@ -30,6 +30,10 @@ class ElasticSearch::BulkStream
     @queue << [:index, *args]
   end # def index
 
+  def partial_update(*args)
+    @queue << [:partial_update, *args]
+  end # def partial_update
+
   # The stream runner.
   private
   def run
