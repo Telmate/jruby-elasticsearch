@@ -54,10 +54,10 @@ class ElasticSearch::BulkStream
           # Queue empty and it's time to stop.
           break
         end
-      rescue => err
-        # TODO log this better
-        $stderr.puts err.inspect
-        $stderr.puts err.backtrace
+      rescue Exception => err
+        @client.logger.error "Error running queue", err
+        sleep 1
+        @client.reconnect
       end
     end # while true
   end # def run

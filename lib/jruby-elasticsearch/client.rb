@@ -8,6 +8,8 @@ class ElasticSearch::Client
   class Error < StandardError; end
   class ConfigurationError < Error; end
 
+  attr_reader :logger 
+  
   # Creates a new ElasticSearch client.
   #
   # options:
@@ -18,6 +20,7 @@ class ElasticSearch::Client
   # :cluster => "clustername" - the cluster name to use
   # :node_name => "node_name" - the node name to use when joining the cluster
   def initialize(options={})
+    @logger = org.elasticsearch.common.logging.ESLoggerFactory.getLogger(self.class.name)
     builder = org.elasticsearch.common.settings.ImmutableSettings.settingsBuilder
     builder.put("node.client", true)
 
@@ -38,7 +41,7 @@ class ElasticSearch::Client
         builder.put("discovery.zen.ping.unicast.hosts", hosts)
       else
         # only one port, not a range.
-        puts "PORT SETTINGS #{options[:host]}:#{port}"
+        logger.info "PORT SETTINGS #{options[:host]}:#{port}"
         builder.put("discovery.zen.ping.unicast.hosts",
                              "#{options[:host]}:#{port}")
       end
@@ -59,7 +62,15 @@ class ElasticSearch::Client
     if !options[:cluster].nil?
       builder.put('cluster.name', options[:cluster])
     end
+    @options = options
+    @builder = builder
+    connect(@options, @builder)
+    at_exit {
+      close
+    }
+  end # def initialize
 
+  def connect(options, builder)
     case options[:type]
       when :transport
         @client = org.elasticsearch.client.transport.TransportClient.new(builder.build)
@@ -74,9 +85,29 @@ class ElasticSearch::Client
         end
       else
         nodebuilder = org.elasticsearch.node.NodeBuilder.nodeBuilder
-        @client = nodebuilder.settings(builder).node.client
+        @node = nodebuilder.settings(builder).node
+        @client = @node.client
     end
-  end # def initialize
+  end # def connect
+  
+  def reconnect
+    close
+    connect(@options, @builder)
+  end # def reconnect
+
+  def close
+    if @node
+      begin
+        @node.close
+        @client.close
+        @node = nil
+        @client = nil
+      rescue Exception => err
+        puts err.inspect
+        logger.error "Errror on node close", err
+      end
+    end
+  end
 
   # Get a new BulkRequest for sending multiple updates to elasticsearch in one
   # request.
