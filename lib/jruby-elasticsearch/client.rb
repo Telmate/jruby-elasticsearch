@@ -41,7 +41,7 @@ class ElasticSearch::Client
         builder.put("discovery.zen.ping.unicast.hosts", hosts)
       else
         # only one port, not a range.
-        logger.info "PORT SETTINGS #{options[:host]}:#{port}"
+        logger.info "PORT SETTINGS #{options[:host]}:#{port}", nil
         builder.put("discovery.zen.ping.unicast.hosts",
                              "#{options[:host]}:#{port}")
       end
