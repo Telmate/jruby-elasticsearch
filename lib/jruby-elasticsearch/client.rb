@@ -64,6 +64,7 @@ class ElasticSearch::Client
     end
     @options = options
     @builder = builder
+    @client_mutex = Mutex.new
     connect(@options, @builder)
     at_exit {
       close
@@ -90,9 +91,15 @@ class ElasticSearch::Client
     end
   end # def connect
   
+  def jclient
+    @client_mutex.synchronize { return @client }
+  end
+  
   def reconnect
-    close
-    connect(@options, @builder)
+    @client_mutex.synchronize do
+      close
+      connect(@options, @builder)
+    end
   end # def reconnect
 
   def close
@@ -113,7 +120,7 @@ class ElasticSearch::Client
   # request.
   public
   def bulk
-    return ElasticSearch::BulkRequest.new(@client)
+    return ElasticSearch::BulkRequest.new(jclient)
   end # def bulk
 
   public
@@ -149,7 +156,7 @@ class ElasticSearch::Client
       id = nil
     end
 
-    indexreq = ElasticSearch::IndexRequest.new(@client, index, type, id, data)
+    indexreq = ElasticSearch::IndexRequest.new(jclient, index, type, id, data)
     if block_given?
       indexreq.instance_eval(&block)
     end
@@ -168,7 +175,7 @@ class ElasticSearch::Client
   #   The context of the block is of the SearchRequest object.
   public
   def search(&block)
-    searchreq = ElasticSearch::SearchRequest.new(@client)
+    searchreq = ElasticSearch::SearchRequest.new(jclient)
     if block_given?
       searchreq.with(&block)
     end
@@ -176,11 +183,11 @@ class ElasticSearch::Client
   end # def search
 
   def cluster
-    return @client.admin.cluster
+    return jclient.admin.cluster
   end
 
   def node
-    return @client.admin.cluster
+    return jclient.admin.cluster
   end
 end # class ElasticSearch::Client
 
