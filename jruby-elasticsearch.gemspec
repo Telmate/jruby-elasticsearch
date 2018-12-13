@@ -1,3 +1,8 @@
+$:.push File.expand_path("../lib", __FILE__)
+
+# Maintain your gem's version:
+require "jruby-elasticsearch/version"
+
 Gem::Specification.new do |spec|
   files = []
   dirs = %w{lib examples etc patterns test}
@@ -5,8 +10,8 @@ Gem::Specification.new do |spec|
     files += Dir["#{dir}/**/*"]
   end
 
-  spec.name = "jruby-elasticsearch"
-  spec.version = "0.0.19"
+  spec.name = "telmate-jruby-elasticsearch"
+  spec.version = ElasticSearch::VERSION
   spec.summary = "JRuby API for ElasticSearch using the native ES Java API"
   spec.description = "..."
   spec.license = "Apache License (2.0)"
