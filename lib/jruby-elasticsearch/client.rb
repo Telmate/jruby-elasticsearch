@@ -47,8 +47,16 @@ class ElasticSearch::Client
       end
     end
 
-    if options[:bind_host]
-      builder.put('network.host', options[:bind_host])
+    if options[:bind_host] 
+      if options[:publish_host]
+        builder.put('network.bind_host', options[:bind_host])
+      else
+        builder.put('network.host', options[:bind_host])
+      end
+    end
+
+    if options[:publish_host]
+      builder.put('network.publish_host', options[:publish_host])
     end
 
     if options[:bind_port]
